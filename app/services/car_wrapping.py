@@ -34,6 +34,26 @@ def overlay_blend(base, overlay):
     return np.clip(res * 255, 0, 255).astype(np.uint8)
 
 
+# Add this function before _process_car_image
+def is_side_view(w, h, min_ratio=1.8, max_ratio=5.0):
+    """
+    Determine if the detected car is likely in side view based on aspect ratio.
+    
+    Args:
+        w: Width of the car bounding box
+        h: Height of the car bounding box
+        min_ratio: Minimum width/height ratio for side view (default: 1.8)
+        max_ratio: Maximum width/height ratio for side view (default: 5.0)
+        
+    Returns:
+        bool: True if the car appears to be in side view, False otherwise
+    """
+    if h == 0:  # Avoid division by zero
+        return False
+        
+    aspect_ratio = w / h
+    return min_ratio <= aspect_ratio <= max_ratio
+
 # --- Core Car Processing Logic (Shared Helper Function) ---
 def _process_car_image(original_image, wrap_material_rgb, brightness, contrast):
     """
@@ -68,11 +88,12 @@ def _process_car_image(original_image, wrap_material_rgb, brightness, contrast):
                 car_mask_raw = result.masks[i].data[0].cpu().numpy()
                 # print(f"Car mask detected! Raw mask shape: {car_mask_raw.shape}, dtype: {car_mask_raw.dtype}")
                 break
+            
 
     if car_mask_raw is None:
         # print("No car detected by the model. Returning original image with message.")
         output_with_message = original_image.copy()
-        cv2.putText(output_with_message, "No car detected", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+        cv2.putText(output_with_message, "No car detected", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
         return output_with_message
 
     car_mask_full_size = cv2.resize(car_mask_raw,
@@ -86,10 +107,40 @@ def _process_car_image(original_image, wrap_material_rgb, brightness, contrast):
         # print("No contours found for the car mask. Returning original image.")
         return original_image
 
+    # After finding the largest contour and calculating the bounding box
     largest_contour = max(contours, key=cv2.contourArea)
     x, y, w, h = cv2.boundingRect(largest_contour)
     # print(f"Car bounding box: x={x}, y={y}, w={w}, h={h}")
+    
+    # Check if the car is in side view
+    if not is_side_view(w, h):
+        output_with_message = original_image.copy()
+        
+        # Add text with background rectangle
+        text = "Please upload side view of the car"
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 1
+        font_thickness = 2
+        text_color = (255, 255, 255)  # White text
+        bg_color = (255, 0, 0) # Red background
 
+        
+        # Get text size
+        (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, font_thickness)
+        
+        # Define rectangle coordinates
+        rect_start = (10, 20)
+        rect_end = (rect_start[0] + text_width + 20, rect_start[1] + text_height + 20)
+        text_pos = (rect_start[0] + 10, rect_start[1] + text_height + 10)
+        
+        # Draw rectangle and text
+        output_with_message = cv2.resize(output_with_message, (612,459))
+        cv2.rectangle(output_with_message, rect_start, rect_end, bg_color, -1)  # -1 fills the rectangle
+        cv2.putText(output_with_message, text, text_pos, font, font_scale, text_color, font_thickness, cv2.LINE_AA)
+        
+        return output_with_message
+    
+    # Continue with the existing code
     src_pts = np.array([[0, 0], [wrap_material_rgb.shape[1], 0],
                         [wrap_material_rgb.shape[1], wrap_material_rgb.shape[0]], [0, wrap_material_rgb.shape[0]]], dtype=np.float32)
     dst_pts = np.array([[x, y], [x + w, y], [x + w, y + h], [x, y + h]], dtype=np.float32)
