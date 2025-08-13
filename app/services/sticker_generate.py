@@ -29,7 +29,7 @@ def generate_image_wrap_sticker(prompt, ref_image_url):
                 prompt_text=prompt_text,
                 ratio='1360:768'  # keep your original ratio
             ).wait_for_task_output()
-        print("[INFO] Image generation successful.", task.output[0])
+        #Sprint("[INFO] Image generation successful.", task.output[0])
         return task.output[0]
 
     except Exception as e:
