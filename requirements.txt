@@ -97,7 +97,6 @@ langchain-google-genai==2.1.8
 langchain-text-splitters==0.3.8
 langsmith==0.4.8
 Levenshtein==0.27.1
--e git+https://github.com/guerra2fernando/libriscribe.git@ab9d81d5a45bd6b3727dc145f69a39bedb12a08c#egg=libriscribe
 litellm==1.72.0
 Markdown==3.8.2
 markdown-it-py==3.0.0
@@ -227,3 +226,5 @@ xmltodict==0.14.2
 yarl==1.20.1
 zipp==3.23.0
 zstandard==0.23.0
+gunicorn
+-e .
