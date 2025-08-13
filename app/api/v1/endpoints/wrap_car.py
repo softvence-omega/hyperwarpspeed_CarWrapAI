@@ -60,13 +60,13 @@
 #         return JSONResponse(status_code=500, content={"detail": f"An internal server error occurred: {str(e)}"})
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from fastapi.responses import JSONResponse
-from typing import Optional
+from fastapi.responses import JSONResponse, HTMLResponse
 import cv2
 import numpy as np
 import os
 import requests
 import base64
+
 from urllib.parse import urlparse
 from app.services.car_wrapping import _process_car_image
 from app.services.sticker_generate import generate_image_wrap_sticker
@@ -85,30 +85,34 @@ def is_valid_url(url: str) -> bool:
 @router.post("/wrap-car/")
 async def wrap_car(
     car_image: UploadFile = File(..., description="Upload the car image"),
-    texture_image_ai_generated_prompt: str = Form(..., description="AI-generated car wrap style"),
-    wrap_style: str = Form(..., description="Style of the car wrap, e.g., 'glossy', 'metallic', 'mate','carbon-fiber'"),
+    texture_prompt: str = Form(..., description="AI-generated car wrap style"),
+    wrap_style: str = Form(..., description="Style of the car wrap, e.g., 'glossy', 'metallic', 'matt','carbon-fiber'"),
     brightness: int = Form(0, description="Adjust brightness, default 0"),
     contrast: float = Form(1.0, description="Adjust contrast, default 1.0")
 ):
     try:
-        # --- Read & decode car image ---
         car_bytes = await car_image.read()
         car_img_np = np.frombuffer(car_bytes, np.uint8)
+
         car_img = cv2.imdecode(car_img_np, cv2.IMREAD_COLOR)
+
         if car_img is None:
             raise HTTPException(status_code=400, detail="Invalid car image.")
+        
         car_img_rgb = cv2.cvtColor(car_img, cv2.COLOR_BGR2RGB)
 
         # --- Generate AI texture ---
-        new_string = f"AI-generated car wrap style: {texture_image_ai_generated_prompt}, wrap style: {wrap_style}"
-        print("[INFO] Generating texture with prompt:", new_string)
+        new_string = f"AI-generated car wrap style: {texture_prompt}, wrap style: {wrap_style}"
         url = generate_image_wrap_sticker(new_string, '')
-        print("[INFO] AI-generated texture URL:", url)
         if not is_valid_url(url):
             raise HTTPException(status_code=400, detail="Invalid AI-generated texture URL.")
 
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
+
+        style_path = os.path.join(TEMP_DIR, "texture_image.png")
+        with open(style_path, 'wb') as f:
+            f.write(resp.content)
 
         texture_img = cv2.imdecode(np.frombuffer(resp.content, np.uint8), cv2.IMREAD_COLOR)
         if texture_img is None:

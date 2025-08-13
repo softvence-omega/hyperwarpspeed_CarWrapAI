@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from app.api.v1.endpoints import (
     wrap_car,
-    change_color,
+    #change_color,
 )
 import os
 
@@ -14,7 +14,7 @@ app.mount("/temp", StaticFiles(directory="temp"), name="temp")
 
 # Include the wrap_car router
 app.include_router(wrap_car.router)
-app.include_router(change_color.router)
+# app.include_router(change_color.router)
 
 @app.get("/")
 def read_root():
